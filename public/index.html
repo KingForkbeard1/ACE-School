@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ACE School - Quiz Generator</title>
+    <style>
+        body { font-family: system-ui; max-width: 600px; margin: 40px auto; padding: 20px; }
+        .card { border: 1px solid #ccc; padding: 15px; margin-bottom: 15px; border-radius: 8px; }
+        pre { background: #f4f4f4; padding: 10px; overflow-x: auto; border-radius: 5px; }
+        button { background: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>Upload a Past Paper</h1>
+    
+    <input type="file" id="fileInput" accept="application/pdf">
+    <button onclick="generateQuiz()">Generate Quiz</button>
+
+    <p id="status" style="margin-top: 20px; font-weight: bold;"></p>
+    <div id="results"></div>
+
+    <script>
+        async function generateQuiz() {
+            const fileInput = document.getElementById('fileInput');
+            const statusText = document.getElementById('status');
+            const resultsDiv = document.getElementById('results');
+
+            if (!fileInput.files[0]) {
+                return alert("Please select a PDF first!");
+            }
+
+            const formData = new FormData();
+            formData.append('pastPaper', fileInput.files[0]);
+
+            statusText.innerText = "Extracting text and generating quiz... (this takes a few seconds)";
+            resultsDiv.innerHTML = "";
+
+            try {
+                const response = await fetch('/api/generate-quiz', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    statusText.innerText = "Quiz Generated Successfully!";
+                    resultsDiv.innerHTML = `<pre>${JSON.stringify(data.quiz, null, 2)}</pre>`;
+                } else {
+                    statusText.innerText = "Error: " + data.error;
+                }
+            } catch (error) {
+                statusText.innerText = "Failed to connect to the server.";
+            }
+        }
+    </script>
+</body>
+</html>
