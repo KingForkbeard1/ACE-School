@@ -3,57 +3,496 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ACE School - Quiz Generator</title>
+    <title>ACE School Platform</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
-        body { font-family: system-ui; max-width: 600px; margin: 40px auto; padding: 20px; }
-        .card { border: 1px solid #ccc; padding: 15px; margin-bottom: 15px; border-radius: 8px; }
-        pre { background: #f4f4f4; padding: 10px; overflow-x: auto; border-radius: 5px; }
-        button { background: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; }
-        button:hover { background: #0056b3; }
+        body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 0; background-color: #f4f7f6; color: #333; }
+        #splash-screen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #1cb0f6; color: white; display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
+        .pop-in { animation: popIn 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        @keyframes popIn { 0% { transform: scale(0.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        .fade-out { animation: fadeOut 0.5s ease forwards; }
+        @keyframes fadeOut { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.1); visibility: hidden; } }
+        #login-screen { height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: white; }
+        .login-box { width: 100%; max-width: 320px; margin-bottom: 25px; background: #f9f9f9; padding: 20px; border-radius: 12px; }
+        .login-input { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        #app-container { display: none; max-width: 800px; margin: 40px auto; padding: 20px; }
+        .nav-tabs { display: flex; background: white; padding: 10px 20px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px; gap: 10px; flex-wrap: wrap; align-items: center; }
+        .tab-btn { background: none; border: none; padding: 10px 20px; font-size: 16px; font-weight: bold; color: #777; cursor: pointer; border-radius: 8px; transition: 0.2s; }
+        .tab-btn:hover { background: #f0f0f0; color: #333; }
+        .tab-btn.active { background: #1cb0f6; color: white; }
+        .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: none; }
+        .card.active { display: block; }
+        .btn-primary { background: #1cb0f6; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.2s; width: 100%; margin-top: 10px; }
+        .btn-primary:hover { background: #1899d6; }
+        .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+        .option-btn { background: #ffffff; color: #4b4b4b; border: 2px solid #e5e5e5; text-align: left; margin-bottom: 10px; padding: 15px; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%; transition: 0.2s; }
+        .option-btn:hover:not(:disabled) { background: #f0f0f0; border-color: #d9d9d9; }
+        .option-btn.correct { background: #d7ffb8; border-color: #58cc02; color: #58cc02; }
+        .option-btn.wrong { background: #ffdfe0; border-color: #ff4b4b; color: #ff4b4b; }
+        .note-card { border-left: 5px solid #1cb0f6; background: #f9f9f9; padding: 15px; margin-bottom: 10px; border-radius: 0 8px 8px 0; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
+        th { color: #888; font-size: 14px; text-transform: uppercase; }
+        #class-selector { padding: 8px; border-radius: 8px; border: 1px solid #ddd; font-weight: bold; color: #333; background: #f0f9ff; outline: none; cursor: pointer; }
     </style>
 </head>
 <body>
-    <h1>Upload a Past Paper</h1>
-    
-    <input type="file" id="fileInput" accept="application/pdf">
-    <button onclick="generateQuiz()">Generate Quiz</button>
 
-    <p id="status" style="margin-top: 20px; font-weight: bold;"></p>
-    <div id="results"></div>
+    <div id="splash-screen">
+        <div id="splash-content" style="text-align: center; opacity: 0;">
+            <h1 style="font-size: 64px; margin: 0; text-shadow: 0 4px 10px rgba(0,0,0,0.1);">ACE</h1>
+            <p id="splash-greeting" style="font-size: 24px; font-weight: bold; margin-top: 10px; opacity: 0.9;"></p>
+        </div>
+    </div>
+
+    <div id="login-screen">
+        <h1 style="color: #1cb0f6; font-size: 40px; margin-bottom: 10px;">ACE School</h1>
+        <p style="color: #777; margin-bottom: 30px;">Sign in to access your classes and quizzes.</p>
+        <div class="login-box">
+            <input type="text" id="name-input" class="login-input" placeholder="Display Name (For Sign Up Only)" style="display: none;">
+            <input type="email" id="email-input" class="login-input" placeholder="Email Address">
+            <input type="password" id="password-input" class="login-input" placeholder="Password" onkeypress="if(event.key === 'Enter') document.getElementById(isSignUpMode ? 'email-register-btn' : 'email-login-btn').click()">
+            <button class="btn-primary" id="email-login-btn" onclick="loginWithEmail()">Sign In</button>
+            <button class="btn-primary" id="email-register-btn" onclick="registerWithEmail()" style="display: none; background: #58cc02;">Create Account</button>
+            <button onclick="toggleAuthMode()" id="toggle-auth-btn" style="background: none; border: none; color: #1cb0f6; cursor: pointer; margin-top: 15px; font-weight: bold; width: 100%;">Need an account? Sign Up</button>
+        </div>
+        <div style="color: #ccc; margin-bottom: 25px; font-weight: bold; font-size: 14px;">— OR —</div>
+        <div id="g_id_onload" data-client_id="545344010232-vodvvjrhrre6vhskulhmoe89qu2t2d8e.apps.googleusercontent.com" data-context="signin" data-ux_mode="popup" data-callback="handleCredentialResponse" data-auto_prompt="false"></div>
+        <div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="outline" data-text="continue_with" data-size="large" data-logo_alignment="left"></div>
+    </div>
+
+    <div id="app-container">
+        <div class="nav-tabs">
+            <button class="tab-btn active" onclick="switchTab('upload')" id="nav-upload">📄 Upload</button>
+            <button class="tab-btn" onclick="switchTab('classes')" id="nav-classes">🏫 Classes</button>
+            <button class="tab-btn" onclick="switchTab('notes')" id="nav-notes">📝 Notes</button>
+            <button class="tab-btn" onclick="switchTab('library')" id="nav-library">📚 Library</button>
+            <button class="tab-btn" onclick="switchTab('quiz')" id="nav-quiz">🎮 Quiz</button>
+            <button class="tab-btn" onclick="switchTab('leaderboard')" id="nav-leaderboard">🏆 Rank</button>
+            <button class="tab-btn" onclick="switchTab('admin')" id="nav-admin" style="display:none; background:#ff4b4b; color:white;">🛡️ Admin</button>
+            <div style="margin-left: auto; display: flex; align-items: center; gap: 15px;">
+                <select id="class-selector" style="display: none;" onchange="changeClassContext()"></select>
+                <span id="user-display-xp" style="font-weight: bold; color: #ff9600; background: #fff0d6; padding: 5px 10px; border-radius: 8px;">0 XP</span>
+                <button style="background: none; border: none; color: #ff4b4b; cursor: pointer; font-weight: bold;" onclick="logout()">Log Out</button>
+            </div>
+        </div>
+
+        <div class="card active" id="tab-upload">
+            <h2>Upload a Past Paper</h2>
+            <p style="color: #777;">Upload a PDF or Word document (.docx) to generate a quiz for the currently selected class.</p>
+            <input type="file" id="fileInput" accept=".pdf, .docx" style="margin-bottom: 20px;">
+            <button class="btn-primary" id="generate-btn" onclick="generateQuiz()">Generate Quiz</button>
+            <p id="upload-status" style="text-align: center; margin-top: 15px; font-weight: bold;"></p>
+        </div>
+
+        <div class="card" id="tab-classes">
+            <h2>My Classrooms</h2>
+            <div id="student-class-view" style="display: none; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #eee;">
+                <p style="color: #777;">Join a class using the code provided by your teacher.</p>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="join-code-input" class="login-input" placeholder="Enter 6-digit Code" style="margin-bottom: 0; text-transform: uppercase;" onkeypress="if(event.key === 'Enter') joinClass()">
+                    <button class="btn-primary" onclick="joinClass()" style="margin-top: 0; width: 120px;">Join</button>
+                </div>
+            </div>
+            <div id="teacher-class-view" style="display: none; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #eee;">
+                <h3 style="color: #1cb0f6; margin-top:0;">Create New Class</h3>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="new-class-name" class="login-input" placeholder="e.g. 10th Grade Math" style="margin-bottom: 0;" onkeypress="if(event.key === 'Enter') createClass()">
+                    <button class="btn-primary" onclick="createClass()" style="margin-top: 0; width: 150px;">Create Class</button>
+                </div>
+            </div>
+            <h3 style="margin-top: 0;">Enrolled Classes</h3>
+            <div id="class-list-container" style="display: flex; flex-direction: column; gap: 10px;"></div>
+        </div>
+
+        <div class="card" id="tab-notes">
+            <h2>Study Notes</h2>
+            <div id="notes-container" style="margin-top: 20px;"></div>
+            <div id="teacher-notes-editor" style="display:none; margin-top:30px; border-top: 2px solid #eee; padding-top:20px;">
+                <h3 style="color: #1cb0f6;">Post New Note</h3>
+                <input type="text" id="note-topic" placeholder="Topic / Subject" class="login-input">
+                <textarea id="note-content" placeholder="Content details..." class="login-input" style="height:120px; font-family: inherit;"></textarea>
+                <label style="display:block; margin-bottom: 5px; font-weight: bold; color: #777;">Attach a File (Optional)</label>
+                <input type="file" id="note-file" class="login-input" style="padding: 8px;">
+                <button class="btn-primary" id="publish-note-btn" onclick="postNote()">Publish Note</button>
+                <p id="note-upload-status" style="text-align: center; margin-top: 15px; font-weight: bold; color: #777;"></p>
+            </div>
+        </div>
+
+        <div class="card" id="tab-library">
+            <h2>Classroom Library</h2>
+            <div id="library-container" style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;"></div>
+        </div>
+
+        <div class="card" id="tab-quiz">
+            <div id="quiz-empty-state"><h2>Quiz Area</h2><p style="color: #888;">Select a paper from the Library to start.</p></div>
+            <div id="quiz-active-state" style="display: none;"></div>
+            <div id="quiz-results-state" style="display: none; text-align: center;"></div>
+        </div>
+
+        <div class="card" id="tab-leaderboard">
+            <h2>Leaderboard</h2>
+            <table>
+                <thead><tr><th>Rank</th><th>Student</th><th>Total XP</th></tr></thead>
+                <tbody id="leaderboard-body"></tbody>
+            </table>
+        </div>
+
+        <div class="card" id="tab-admin">
+            <h2>Moderation Panel</h2>
+            <div id="admin-quiz-list" style="display: flex; flex-direction: column; gap: 10px;"></div>
+        </div>
+    </div>
 
     <script>
-        async function generateQuiz() {
-            const fileInput = document.getElementById('fileInput');
-            const statusText = document.getElementById('status');
-            const resultsDiv = document.getElementById('results');
+        let currentUser = null;
+        let isSignUpMode = false;
+        let currentClassId = null; 
 
-            if (!fileInput.files[0]) {
-                return alert("Please select a PDF first!");
+        // --- AUTH LOGIC ---
+        function toggleAuthMode() {
+            isSignUpMode = !isSignUpMode;
+            document.getElementById('name-input').style.display = isSignUpMode ? 'block' : 'none';
+            document.getElementById('email-login-btn').style.display = isSignUpMode ? 'none' : 'block';
+            document.getElementById('email-register-btn').style.display = isSignUpMode ? 'block' : 'none';
+            document.getElementById('toggle-auth-btn').innerText = isSignUpMode ? "Already have an account? Sign In" : "Need an account? Sign Up";
+        }
+
+        async function loginWithEmail() {
+            const email = document.getElementById('email-input').value;
+            const password = document.getElementById('password-input').value;
+            if(!email || !password) return alert("Please enter both email and password.");
+            try {
+                const res = await fetch('/api/email-login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+                const data = await res.json();
+                if(data.success) activateDashboard(data.user); else alert(data.error);
+            } catch (error) { alert("Server error."); }
+        }
+
+        async function registerWithEmail() {
+            const name = document.getElementById('name-input').value;
+            const email = document.getElementById('email-input').value;
+            const password = document.getElementById('password-input').value;
+            if(!name || !email || !password) return alert("Please fill fields.");
+            try {
+                const res = await fetch('/api/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, email, password }) });
+                const data = await res.json();
+                if(data.success) activateDashboard(data.user); else alert(data.error);
+            } catch (error) { alert("Server error."); }
+        }
+
+        async function handleCredentialResponse(response) {
+            const base64Url = response.credential.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = JSON.parse(decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')));
+            try {
+                const res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ googleId: jsonPayload.sub, name: jsonPayload.name }) });
+                const dbData = await res.json();
+                if (dbData.success) activateDashboard(dbData.user);
+            } catch (error) { alert("Database connection failed."); }
+        }
+
+        function activateDashboard(user) {
+            currentUser = user;
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('splash-greeting').innerText = `Welcome, ${user.display_name.split(' ')[0]}!`;
+            if (user.role === 'teacher') document.getElementById('nav-admin').style.display = 'block';
+            
+            const splash = document.getElementById('splash-screen');
+            splash.style.display = 'flex';
+            document.getElementById('splash-content').classList.add('pop-in');
+
+            setTimeout(() => {
+                splash.classList.add('fade-out');
+                setTimeout(() => {
+                    splash.style.display = 'none';
+                    document.getElementById('app-container').style.display = 'block';
+                    updateTopBarUI();
+                    loadClasses(); 
+                }, 500); 
+            }, 1500); 
+        }
+
+        function updateTopBarUI() {
+            if(currentUser) document.getElementById('user-display-xp').innerText = currentUser.total_xp + " XP";
+        }
+        function logout() { location.reload(); }
+
+        // --- NAVIGATION & CONTEXT ---
+        function switchTab(tabId) {
+            document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('tab-' + tabId).classList.add('active');
+            document.getElementById('nav-' + tabId).classList.add('active');
+
+            if (tabId === 'library') loadLibrary();
+            if (tabId === 'leaderboard') loadLeaderboard();
+            if (tabId === 'notes') loadNotes();
+            if (tabId === 'admin') loadAdmin();
+            if (tabId === 'classes') loadClasses();
+        }
+
+        function changeClassContext() {
+            currentClassId = document.getElementById('class-selector').value;
+            const activeTab = document.querySelector('.card.active').id;
+            if(activeTab === 'tab-library') loadLibrary();
+            if(activeTab === 'tab-notes') loadNotes();
+            if(activeTab === 'tab-leaderboard') loadLeaderboard();
+        }
+
+        // --- CLASSROOMS ---
+        async function loadClasses() {
+            const container = document.getElementById('class-list-container');
+            const selector = document.getElementById('class-selector');
+            
+            if (currentUser.role === 'teacher') {
+                document.getElementById('teacher-class-view').style.display = 'block';
+                document.getElementById('student-class-view').style.display = 'none';
+            } else {
+                document.getElementById('teacher-class-view').style.display = 'none';
+                document.getElementById('student-class-view').style.display = 'block';
             }
-
-            const formData = new FormData();
-            formData.append('pastPaper', fileInput.files[0]);
-
-            statusText.innerText = "Extracting text and generating quiz... (this takes a few seconds)";
-            resultsDiv.innerHTML = "";
 
             try {
-                const response = await fetch('/api/generate-quiz', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    statusText.innerText = "Quiz Generated Successfully!";
-                    resultsDiv.innerHTML = `<pre>${JSON.stringify(data.quiz, null, 2)}</pre>`;
+                const res = await fetch(`/api/classrooms/${currentUser.id}`);
+                const data = await res.json();
+                
+                if (data.success && data.classrooms.length > 0) {
+                    container.innerHTML = data.classrooms.map(c => `
+                        <div style="padding:15px; border:1px solid #ddd; border-radius:8px; background: white; display: flex; justify-content: space-between; align-items: center;">
+                            <h4 style="margin: 0;">${c.name}</h4>
+                            ${currentUser.role === 'teacher' ? `<span style="background: #eef2ff; color: #4f46e5; padding: 5px 10px; border-radius: 5px; font-family: monospace; font-weight: bold;">Code: ${c.join_code}</span>` : ''}
+                        </div>
+                    `).join('');
+                    
+                    selector.style.display = 'block';
+                    selector.innerHTML = `<option value="all">🌐 All Classes</option>` + 
+                        data.classrooms.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+                    
+                    if(!currentClassId && data.classrooms.length > 0) {
+                        currentClassId = data.classrooms[0].id;
+                        selector.value = currentClassId;
+                    } else {
+                        selector.value = currentClassId;
+                    }
                 } else {
-                    statusText.innerText = "Error: " + data.error;
+                    container.innerHTML = '<p style="color:#888;">You are not in any classes yet.</p>';
+                    selector.style.display = 'none';
                 }
-            } catch (error) {
-                statusText.innerText = "Failed to connect to the server.";
+            } catch (error) { container.innerHTML = '<p style="color:red;">Failed to load classes.</p>'; }
+        }
+
+        async function createClass() {
+            const name = document.getElementById('new-class-name').value;
+            if(!name) return alert("Enter a name.");
+            try {
+                const res = await fetch('/api/classrooms/create', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name, teacherId: currentUser.id }) });
+                const data = await res.json();
+                if(data.success) { document.getElementById('new-class-name').value = ''; loadClasses(); } else alert(data.error);
+            } catch (error) { alert("Failed to create class."); }
+        }
+
+        async function joinClass() {
+            const code = document.getElementById('join-code-input').value.toUpperCase();
+            if(!code) return alert("Enter code.");
+            try {
+                const res = await fetch('/api/classrooms/join', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ studentId: currentUser.id, joinCode: code }) });
+                const data = await res.json();
+                if(data.success) { document.getElementById('join-code-input').value = ''; alert(`Joined ${data.classroomName}!`); loadClasses(); } else alert(data.error);
+            } catch (error) { alert("Failed to join class."); }
+        }
+
+        // --- FILTERED FETCHING ---
+        async function loadLeaderboard() {
+            const tbody = document.getElementById('leaderboard-body');
+            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">Fetching rankings...</td></tr>';
+            try {
+                const res = await fetch(`/api/leaderboard?classId=${currentClassId || 'all'}`);
+                const data = await res.json();
+                if (data.success) {
+                    tbody.innerHTML = data.leaderboard.map((u, i) => {
+                        const isMe = (currentUser && u.id === currentUser.id);
+                        return `<tr style="${isMe ? 'background-color: #f0f9ff;' : ''}"><td><b>${i+1}</b></td><td>${u.display_name} ${isMe ? '(You)' : ''}</td><td style="color:#1cb0f6; font-weight:bold;">${u.total_xp} XP</td></tr>`;
+                    }).join('');
+                }
+            } catch (error) { tbody.innerHTML = '<tr><td colspan="3" style="color:red;">Error loading leaderboard.</td></tr>'; }
+        }
+
+        async function loadLibrary() {
+            const container = document.getElementById('library-container');
+            container.innerHTML = '<p>Loading quizzes...</p>';
+            try {
+                const res = await fetch(`/api/quizzes?classId=${currentClassId || 'all'}`);
+                const data = await res.json();
+                if (data.success && data.quizzes.length > 0) {
+                    container.innerHTML = data.quizzes.map(q => 
+                        `<button class="option-btn" onclick='startLibraryQuiz(${JSON.stringify(q.quiz_data)})'>📘 <b>AI Quiz</b> <br><span style="font-size:12px; color:#888;">Uploaded by ${q.uploader_name}</span></button>`
+                    ).join('');
+                } else container.innerHTML = '<p>No quizzes found for this class.</p>';
+            } catch (error) { container.innerHTML = '<p style="color:red;">Error loading library.</p>'; }
+        }
+
+        async function loadNotes() {
+            const container = document.getElementById('notes-container');
+            container.innerHTML = '<p>Loading notes...</p>';
+            try {
+                const res = await fetch(`/api/notes?classId=${currentClassId || 'all'}`);
+                const data = await res.json();
+                if (data.success && data.notes.length > 0) {
+                    container.innerHTML = data.notes.map(n => {
+                        let fileHtml = n.file_url ? `<a href="${n.file_url}" target="_blank" style="display:inline-block; margin-top:10px; padding:8px 12px; background:#eef2ff; color:#4f46e5; text-decoration:none; border-radius:6px; font-weight:bold; font-size:14px;">📎 Download Attached File</a>` : '';
+                        return `<div class="note-card"><h3 style="margin: 0 0 5px 0;">${n.topic}</h3><p style="margin: 0 0 10px 0; white-space: pre-wrap;">${n.content}</p>${fileHtml}<br><small style="color:#888; display:block; margin-top:10px;"><b>Posted by:</b> ${n.author_name}</small></div>`;
+                    }).join('');
+                } else container.innerHTML = '<p style="color:#888;">No notes found for this class.</p>';
+                if (currentUser && currentUser.role === 'teacher') document.getElementById('teacher-notes-editor').style.display = 'block';
+            } catch (error) { container.innerHTML = '<p style="color:red;">Error loading notes.</p>'; }
+        }
+
+        async function postNote() {
+            const topic = document.getElementById('note-topic').value;
+            const content = document.getElementById('note-content').value;
+            const fileInput = document.getElementById('note-file');
+            const statusText = document.getElementById('note-upload-status');
+            const btn = document.getElementById('publish-note-btn');
+
+            if(!topic || !content) return alert("Fill in both topic and content.");
+            if(!currentClassId || currentClassId === 'all') return alert("Please select a specific class from the dropdown menu first.");
+            
+            btn.disabled = true; statusText.innerText = "Publishing note... please wait.";
+            const fd = new FormData(); fd.append('topic', topic); fd.append('content', content); fd.append('userId', currentUser.id); fd.append('authorName', currentUser.display_name); fd.append('classroomId', currentClassId);
+            if (fileInput.files[0]) fd.append('noteFile', fileInput.files[0]);
+
+            try {
+                const res = await fetch('/api/notes', { method: 'POST', body: fd });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('note-topic').value = ''; document.getElementById('note-content').value = ''; fileInput.value = '';
+                    statusText.innerText = "Note published successfully!"; setTimeout(() => statusText.innerText = "", 3000); loadNotes();
+                } else statusText.innerText = "Error: " + data.error;
+            } catch (error) { statusText.innerText = "Failed to post note. Server error."; }
+            btn.disabled = false;
+        }
+
+        async function loadAdmin() {
+            const container = document.getElementById('admin-quiz-list');
+            container.innerHTML = 'Loading quizzes...';
+            try {
+                const res = await fetch(`/api/quizzes?classId=${currentClassId || 'all'}`);
+                const data = await res.json();
+                if (data.success) {
+                    container.innerHTML = data.quizzes.map(q => `<div style="display:flex; justify-content:space-between; align-items:center; padding:15px; border:1px solid #eee; border-radius:8px; background: white; margin-bottom:5px;"><span><b>AI Quiz</b> (${q.uploader_name})</span><button style="background:#ff4b4b; color:white; border:none; padding:8px 15px; border-radius:5px; cursor:pointer;" onclick="deleteQuiz(${q.id})">Delete</button></div>`).join('');
+                }
+            } catch(e) { container.innerHTML = 'Failed to load moderation panel.'; }
+        }
+
+        async function deleteQuiz(quizId) {
+            if(!confirm("Delete this quiz?")) return;
+            try {
+                await fetch('/api/admin/delete-quiz', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ quizId, userId: currentUser.id }) });
+                loadAdmin(); 
+            } catch (e) { alert("Failed to delete."); }
+        }
+
+        // --- QUIZ GAMEPLAY & AI TUTOR ---
+        let quizData = []; let currentIndex = 0; let score = 0;
+
+        function startLibraryQuiz(data) {
+            quizData = data; currentIndex = 0; score = 0;
+            document.getElementById('quiz-empty-state').style.display = 'none';
+            document.getElementById('quiz-results-state').style.display = 'none';
+            document.getElementById('quiz-active-state').style.display = 'block';
+            switchTab('quiz'); loadQuestion();
+        }
+
+        async function generateQuiz() {
+            const fileInput = document.getElementById('fileInput');
+            const generateBtn = document.getElementById('generate-btn');
+            const statusText = document.getElementById('upload-status');
+            
+            if (!fileInput.files[0]) return alert("Upload a PDF or Word document first!");
+            if (!currentClassId || currentClassId === 'all') return alert("Select a specific class from the dropdown menu at the top right to generate this quiz for.");
+
+            generateBtn.disabled = true; generateBtn.innerText = "Processing Document..."; statusText.innerText = "Extracting text and passing to AI...";
+            const fd = new FormData(); fd.append('pastPaper', fileInput.files[0]); fd.append('uploaderName', currentUser.display_name); fd.append('classroomId', currentClassId);
+            
+            try {
+                const res = await fetch('/api/generate-quiz', { method: 'POST', body: fd });
+                const data = await res.json();
+                if(data.success) { 
+                    quizData = data.quiz; currentIndex = 0; score = 0; statusText.innerText = "";
+                    document.getElementById('quiz-empty-state').style.display = 'none';
+                    document.getElementById('quiz-results-state').style.display = 'none';
+                    document.getElementById('quiz-active-state').style.display = 'block';
+                    switchTab('quiz'); loadQuestion(); 
+                } else { statusText.innerText = "Error: " + data.error; }
+            } catch(e) { statusText.innerText = "Server error."; }
+            generateBtn.disabled = false; generateBtn.innerText = "Generate Quiz";
+        }
+
+        function loadQuestion() {
+            const q = quizData[currentIndex];
+            let html = `<p style="color:#afafaf; font-weight:bold; font-size:14px;">Question ${currentIndex + 1} of ${quizData.length}</p><h2 style="margin-bottom:20px;">${q.question}</h2>`;
+            html += q.options.map(opt => `<button class="option-btn" onclick="checkAnswer(this, '${opt.replace(/'/g, "\\'")}', '${q.correctAnswer.replace(/'/g, "\\'")}', '${q.explanation.replace(/'/g, "\\'")}', '${q.question.replace(/'/g, "\\'")}')">${opt}</button>`).join('');
+            html += `<div id="feedback" style="display:none; font-weight:bold; margin-top:15px; border-radius:8px; padding:15px;"></div><button class="btn-primary" id="next-btn" style="display:none; background:#58cc02;" onclick="nextQuestion()">Continue</button>`;
+            document.getElementById('quiz-active-state').innerHTML = html;
+        }
+
+        function checkAnswer(btn, selected, correct, explanation, fullQuestion) {
+            document.querySelectorAll('#quiz-active-state .option-btn').forEach(b => b.disabled = true);
+            const fb = document.getElementById('feedback'); fb.style.display = 'block';
+            
+            if(selected === correct) { 
+                score++; btn.style.background = '#d7ffb8'; btn.style.borderColor = '#58cc02';
+                fb.style.background = '#d7ffb8'; fb.style.color = '#2b7000'; fb.innerHTML = `✅ Correct! <br><span style="font-weight:normal;">${explanation}</span>`;
+            } else { 
+                btn.style.background = '#ffdfe0'; btn.style.borderColor = '#ff4b4b';
+                fb.style.background = '#ffdfe0'; fb.style.color = '#cc0000'; 
+                fb.innerHTML = `❌ Incorrect. <br><span style="font-weight:normal;">Correct: <b>${correct}</b>. ${explanation}</span>
+                <button class="btn-primary" style="margin-top: 15px; background: #8b5cf6;" onclick="askAITutor('${fullQuestion.replace(/'/g, "\\'")}', '${selected.replace(/'/g, "\\'")}', '${correct.replace(/'/g, "\\'")}')">🤖 Ask AI Tutor to Explain</button>
+                <div id="ai-tutor-response" style="display:none; margin-top: 15px; padding: 15px; background: #f3e8ff; border-left: 4px solid #8b5cf6; border-radius: 4px; color: #4c1d95; font-weight: normal;"></div>`;
+                
+                document.querySelectorAll('#quiz-active-state .option-btn').forEach(b => { if(b.innerText === correct) { b.style.background = '#d7ffb8'; b.style.borderColor = '#58cc02'; } });
             }
+            document.getElementById('next-btn').style.display = 'block';
+        }
+
+        async function askAITutor(q, wrong, correct) {
+            const tutorDiv = document.getElementById('ai-tutor-response');
+            tutorDiv.style.display = 'block';
+            tutorDiv.innerHTML = '<i>AI Tutor is analyzing your answer...</i>';
+            try {
+                const res = await fetch('/api/tutor', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ question: q, wrongAnswer: wrong, correctAnswer: correct })
+                });
+                const data = await res.json();
+                if(data.success) {
+                    tutorDiv.innerHTML = `<b>🤖 AI Tutor:</b><br>${data.explanation}`;
+                } else {
+                    tutorDiv.innerHTML = '<span style="color:red;">The AI Tutor is currently unavailable.</span>';
+                }
+            } catch(e) {
+                tutorDiv.innerHTML = '<span style="color:red;">Connection error to the AI Tutor.</span>';
+            }
+        }
+
+        function nextQuestion() {
+            currentIndex++; if(currentIndex < quizData.length) loadQuestion(); else showResults();
+        }
+
+        async function showResults() {
+            document.getElementById('quiz-active-state').style.display = 'none';
+            const resState = document.getElementById('quiz-results-state'); resState.style.display = 'block';
+            const xp = score * 10;
+            resState.innerHTML = `<h1>Complete!</h1><h2 style="font-size:48px; color:#58cc02; margin:10px 0;">${score}/${quizData.length}</h2><p style="font-weight:bold; color:#ff9600; font-size:20px; margin-bottom:30px;">+${xp} XP Earned!</p><p id="save-status" style="color:#777; margin-bottom:15px;">Saving...</p><button class="btn-primary" onclick="switchTab('library')">Finish</button>`;
+            if (currentUser && xp > 0) {
+                try {
+                    const res = await fetch('/api/update-xp', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: currentUser.id, xpToAdd: xp }) });
+                    const data = await res.json();
+                    if(data.success) { currentUser = data.user; updateTopBarUI(); document.getElementById('save-status').innerText = "XP Saved!"; }
+                } catch(e) { document.getElementById('save-status').innerText = "Failed to save."; }
+            } else { document.getElementById('save-status').innerText = ""; }
         }
     </script>
 </body>
